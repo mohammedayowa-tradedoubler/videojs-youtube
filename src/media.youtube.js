@@ -147,9 +147,9 @@ videojs.Youtube = videojs.MediaTechController.extend({
     // Delete unset properties
     for ( var prop in params ) {
         if ( params.hasOwnProperty( prop ) &&
-            ( typeof params[ prop ] === 'undefined' || typeof params[ prop ] === 'null' )
-        ) {
-            delete params[ prop ];
+          ( typeof params[ prop ] === 'undefined' || typeof params[ prop ] === 'null' )
+         ) {
+          delete params[ prop ];
         }
     }
 
@@ -635,6 +635,8 @@ videojs.Youtube.prototype.onError = function(error){
 
 //Cross browser solution to add text content to an element
 function setInnerText(element, text) {
+  if(element === undefined) { return false; }
+
   var textProperty = ('innerText' in element)? 'innerText' : 'textContent';
   element[textProperty] = text;
 };
