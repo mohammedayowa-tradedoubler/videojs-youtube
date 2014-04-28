@@ -115,7 +115,7 @@ videojs.Youtube = videojs.MediaTechController.extend({
 
     if (!this.player_.options()['ytcontrols']) {
       // Before the tech is ready, we have to take care of the play action
-      this.iframeblocker.style.display = 'block';
+      //this.iframeblocker.style.display = 'block';
     }
 
     this.player_el_.insertBefore(this.iframeblocker, this.player_el_.firstChild);
@@ -124,7 +124,7 @@ videojs.Youtube = videojs.MediaTechController.extend({
     this.parseSrc(player.options()['src']);
 
     this.playOnReady = this.player_.options()['autoplay'] || false;
-    this.forceSSL = this.player_.options()['forceSSL'] || false;
+    this.forceSSL = this.player_.options()['forceSSL'] || true;
 
     var params = {
       enablejsapi: 1,
@@ -154,15 +154,11 @@ videojs.Youtube = videojs.MediaTechController.extend({
     }
 
     // If we are not on a server, don't specify the origin (it will crash)
-    if (window.location.protocol != 'file:'){
-      if(this.forceSSL) {
-        this.el_.src = 'https://www.youtube.com/embed/' + this.videoId + '?' + videojs.Youtube.makeQueryString(params);
-      } else {
-        params.origin = window.location.protocol + '//' + window.location.host;
-        this.el_.src = window.location.protocol + '//www.youtube.com/embed/' + this.videoId + '?' + videojs.Youtube.makeQueryString(params);
-      }
-    } else {
+    if(this.forceSSL || window.location.protocol != 'file:') {
       this.el_.src = 'https://www.youtube.com/embed/' + this.videoId + '?' + videojs.Youtube.makeQueryString(params);
+    } else {
+      params.origin = window.location.protocol + '//' + window.location.host;
+      this.el_.src = window.location.protocol + '//www.youtube.com/embed/' + this.videoId + '?' + videojs.Youtube.makeQueryString(params);
     }
 
     player.ready(function(){
@@ -189,7 +185,12 @@ videojs.Youtube = videojs.MediaTechController.extend({
           // Set the black background if their is no video initially
           this.iframeblocker.style.backgroundColor = 'black';
         } else {
-          this.player_.poster('https://img.youtube.com/vi/' + this.videoId + '/0.jpg');
+		  // Don't use player.poster(), it will fail here because the tech is still null in constructor
+		  setTimeout(function() {
+			var posterEl = self.player_el_.getElementsByClassName('vjs-poster')[0];
+		    posterEl.style.backgroundImage = 'url(https://img.youtube.com/vi/' + self.videoId + '/0.jpg)';
+		    posterEl.style.display = '';
+	      }, 100);
         }
       }
     }
@@ -458,7 +459,7 @@ videojs.Youtube.prototype.updateQualities = function(){
       el.setAttribute('class', 'vjs-menu-item');
       setInnerText(el, videojs.Youtube.parseQualityName(qualities[i]));
       el.setAttribute('data-val', qualities[i]);
-      if (qualities[i] == this.quality) el.classList.add('vjs-selected');
+      if (qualities[i] == this.quality) videojs.Youtube.addClass(el, 'vjs-selected');
 
       el.addEventListener('click', function() {
         var quality = this.getAttribute('data-val');
@@ -467,9 +468,9 @@ videojs.Youtube.prototype.updateQualities = function(){
         setInnerText( self.qualityTitle, videojs.Youtube.parseQualityName(quality) );
         
         var selected = self.qualityMenuContent.querySelector('.vjs-selected');
-        if (selected) selected.classList.remove('vjs-selected');
+        if (selected) videojs.Youtube.removeClass(selected, 'vjs-selected');
         
-        this.classList.add('vjs-selected');
+        videojs.Youtube.addClass(this, 'vjs-selected');
       });
       
       this.qualityMenuContent.appendChild(el);
@@ -631,6 +632,46 @@ videojs.Youtube.prototype.onPlaybackQualityChange = function(quality){
 videojs.Youtube.prototype.onError = function(error){
   this.player_.error = error;
   this.player_.trigger('error');
+  
+  if (error == 100 || error == 101 || error == 150) {
+    this.player_.bigPlayButton.hide();
+    this.player_.loadingSpinner.hide();
+    this.player_.posterImage.hide();
+    this.iframeblocker.style.display = '';
+  }
+};
+
+/**
+ * Add a CSS class name to an element
+ * @param {Element} element    Element to add class name to
+ * @param {String} classToAdd Classname to add
+ */
+videojs.Youtube.addClass = function(element, classToAdd){
+  if ((' '+element.className+' ').indexOf(' '+classToAdd+' ') == -1) {
+    element.className = element.className === '' ? classToAdd : element.className + ' ' + classToAdd;
+  }
+};
+
+/**
+ * Remove a CSS class name from an element
+ * @param {Element} element    Element to remove from class name
+ * @param {String} classToRemove Classname to remove
+ */
+videojs.Youtube.removeClass = function(element, classToRemove){
+  var classNames, i;
+
+  if (element.className.indexOf(classToRemove) == -1) { return; }
+
+  classNames = element.className.split(' ');
+
+  // no arr.indexOf in ie8, and we don't want to add a big shim
+  for (i = classNames.length - 1; i >= 0; i--) {
+    if (classNames[i] === classToRemove) {
+      classNames.splice(i,1);
+    }
+  }
+
+  element.className = classNames.join(' ');
 };
 
 //Cross browser solution to add text content to an element
@@ -650,7 +691,7 @@ function setInnerText(element, text) {
   var css = ' \
   .vjs-youtube .vjs-poster { background-size: cover; }\
   .vjs-poster, .vjs-loading-spinner, .vjs-big-play-button, .vjs-text-track-display{ pointer-events: none !important; }\
-  .iframeblocker { display:none;position:absolute;top:0;left:0;width:100%;height:100%;cursor:pointer;z-index:2; }\
+  .iframeblocker { display:none;position:absolute;top:0;left:0;width:100%;height:100%;z-index:2; }\
   .vjs-youtube.vjs-user-inactive .iframeblocker { display:block; } \
   .vjs-quality-button > div:first-child > span:first-child { position:relative;top:7px }\
   ';
